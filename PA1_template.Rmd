@@ -1,25 +1,109 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Course Project 1"
+author: "Shubham Mishra"
+date: "06/11/2020"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,include=FALSE}
+library(tidyverse)
+library(data.table)
+```
 
 ## Loading and preprocessing the data
 
-
+```{r}
+q <- fread("activity.csv")
+```
 
 ## What is mean total number of steps taken per day?
 
+Following is code for the table representing the total number of steps taken per day, mean of total number of steps taken per day and median of total number of steps taken per day:
 
+```{r, results='asis'}
+library(knitr)
+r <- aggregate(steps ~ date, q, sum)
+m <- aggregate(steps ~ date, q, mean)
+n <- aggregate(steps ~ date, q, median)
+r <- merge(r,m,by = "date")
+r <- merge(r,n,by = "date")
+d <-c("Date","Total number of steps taken","Mean of total number of steps taken","Median of total number of steps taken")
+kable(r[,1:4], caption = "Total number of steps taken per day", col.names = d)
+```
+
+Following is code for the histogram representing the total number of steps taken per day:
+
+```{r}
+r %>% ggplot(aes(date,steps.x, fill = steps.x)) + geom_bar(stat = "identity") + xlab("Date") + ylab("Total number of steps taken") + ggtitle("Total number of steps taken per day")
+```
 
 ## What is the average daily activity pattern?
 
+Following is code for the time series plot representing the mean of the total number of steps taken per interval(=5 min):
 
+```{r,results = 'asis'}
+a <- aggregate(steps~interval,q,mean)
+r <- a$interval[which.max(a$steps)]
+a %>% ggplot(aes(x=interval, y=steps)) + geom_line() + xlab("Interval in minutes") + ylab("Total number of steps taken") + ggtitle("Mean of total number of steps taken")
+```
+
+The interval in which the maximum number of steps were recorded is `r r`
 
 ## Imputing missing values
 
+Following is the code for finding and filling missing dataset with mean values for that interval:
 
+```{r}
+t <- sum(is.na(q))
+impute <- function(steps,interval){
+  impute <- NA
+  if(!is.na(steps))
+    impute <- c(steps)
+  else
+    impute <- (a[a$interval == interval, "steps"])
+  return(impute)
+}
+z <- q
+z$steps <- mapply(impute, z$steps, z$interval)
+b <- aggregate(steps ~ date, z, mean)
+c <- aggregate(steps ~ date, z, median)
+b <- merge(b,c,by = "date")
+e <-c("Date","Mean of total number of steps taken","Median of total number of steps taken")
+kable(b[,1:3], caption = "Mean and Median of total number of steps taken per day after imputing the data", col.names = e)
+```
+
+Total number of missing values in the original data is `r t`.
+
+Following is code for the histogram representing the total number of steps taken per day after imputing the data:
+
+```{r,results = 'asis'}
+g <- aggregate(steps~date,z,sum)
+g %>% ggplot(aes(date,steps, fill = steps)) + geom_bar(stat = "identity") + xlab("Date") + ylab("Total number of steps taken") + ggtitle("Total number of steps taken per day after imputing the data")
+```
+
+As is clear from the respective histograms total number of steps taken per day has increases after imputing the data as NA values have been replaced with respective mean of the total steps for the interval.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+Following is code for the time series plot for representing the differences in the activity patterns of total number of steps taken per day after imputing the data during weekdays and weekends:
+
+```{r, results='asis'}
+day <- function(date){
+  i <- weekdays(date)
+  if (i %in% c("Monday","Tuesday","Wednesday","Thursday","Friday"))
+    return("Weekday")
+  else if(i %in% c("Saturday","Sunday"))
+    return("Weekend")
+  else
+    stop("Invalid date")
+}
+z$date <- as.Date(z$date)
+z$day <- sapply(z$date,day)
+l <- aggregate(steps~day + interval,z,mean)
+l %>% ggplot(aes(interval,steps, fill = steps)) + geom_line() + xlab("5-minute intervals") + ylab("Total number of steps taken") + ggtitle("Total number of steps taken per day after imputing the data") + facet_grid(day~.)
+```
+
